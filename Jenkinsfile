@@ -6,19 +6,25 @@ pipeline {
     }
 
     stages {
-        stage('Pull Code') {
+        stage('Checkout') {
             steps {
-                git branch: 'main',
-                url: 'https://github.com/sathishgt07/website'
+                checkout scm
             }
         }
 
         stage('Deploy to EC2') {
             steps {
-                sshagent(credentials: ['ec2-ssh-key']) {
+                withCredentials([
+                  sshUserPrivateKey(
+                    credentialsId: 'ec2-ssh-key',
+                    keyFileVariable: 'SSH_KEY',
+                    usernameVariable: 'SSH_USER'
+                  )
+                ]) {
                     sh '''
-                    scp -o StrictHostKeyChecking=no index.html ubuntu@$EC2_IP:/home/ubuntu/
-                    ssh ubuntu@$EC2_IP "sudo mv /home/ubuntu/index.html /var/www/html/index.html && sudo systemctl reload nginx"
+                    chmod 600 $SSH_KEY
+                    scp -o StrictHostKeyChecking=no -i $SSH_KEY index.html $SSH_USER@$EC2_IP:/home/$SSH_USER/
+                    ssh -o StrictHostKeyChecking=no -i $SSH_KEY $SSH_USER@$EC2_IP "sudo mv /home/$SSH_USER/index.html /var/www/html/index.html && sudo systemctl reload nginx"
                     '''
                 }
             }
